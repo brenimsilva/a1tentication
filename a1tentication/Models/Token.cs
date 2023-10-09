@@ -6,7 +6,7 @@ namespace a1tentication.Models;
 public class Token
 {
     [Key] public int TokenId { get; set; }
-    [StringLength(120)] public string TokenGuid { get; set; }
+    [StringLength(120)] public Guid TokenGuid { get; set; }
     [ForeignKey("User")] public int UserId { get; set; }
     public DateTime expires_at { get; set; }
 }

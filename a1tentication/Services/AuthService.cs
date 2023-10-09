@@ -1,25 +1,57 @@
-﻿namespace a1tentication.Services;
+﻿using a1tentication.Context;
+using a1tentication.Models;
+using a1tentication.Models.DTO.Response;
+using Microsoft.EntityFrameworkCore;
+
+namespace a1tentication.Services;
 
 public class AuthService 
 {
-    RpgContext _ctx;
+    AuthContext _ctx;
     
-    public AuthService(RpgContext ctx) {
+    public AuthService(AuthContext ctx) {
         this._ctx = ctx;
     }
 
-    public async Task<User> LogIn(string usuario, string senha)
+    public async Task<UserResponseDTO> LogIn(string email, string senha)
     {
         string senhaCrypto = Util.StringUtilities.Hash(senha);
-        User u = await _ctx.User.Include(e => e.Token).FirstOrDefaultAsync(e => e.UserName == usuario && e.Password == senhaCrypto);
+        User u = await _ctx.Users.Include(e => e.UserToken).FirstOrDefaultAsync(e => e.UserEmail == email && e.UserPassword == senhaCrypto);
         var t = await SetToken(u);
-        
-        return u;
+        UserResponseDTO res = new UserResponseDTO
+        {
+            UserToken = u.UserToken.TokenGuid,
+            UserEmail = u.UserEmail,
+            created_at = u.created_at,
+            dt_nasc = u.dt_nasc,
+            Name = u.Name
+        };
+        await _ctx.SaveChangesAsync();
+        return res;
+    }
+    public async Task<UserResponseDTO> LogInByToken(Guid token)
+    {
+        User u = await _ctx.Users.Include(e => e.UserToken).FirstOrDefaultAsync(e => e.UserToken.TokenGuid == token);
+        if (u.UserToken.expires_at < DateTime.Now || u is null)
+        {
+            throw new Exception("Token Expirado ou Nao encontrado");
+        }
+        var t = await SetToken(u);
+        UserResponseDTO res = new UserResponseDTO
+        {
+            UserToken = u.UserToken.TokenGuid,
+            UserEmail = u.UserEmail,
+            created_at = u.created_at,
+            dt_nasc = u.dt_nasc,
+            Name = u.Name
+        };
+        await _ctx.SaveChangesAsync();
+        return res;
     }
 
-    public async Task<bool> CheckToken(string token) {
-        Token t = await _ctx.Token.FirstOrDefaultAsync(e => e.token == token);
-        if(t.expires_at > DateTime.Now) {
+    public async Task<bool> CheckToken(Guid token) {
+        Token t = await _ctx.Tokens.FirstOrDefaultAsync(e => e.TokenGuid == token);
+        if(t is not null && t.expires_at > DateTime.Now) {
             return true;
         }
         return false;
@@ -30,12 +62,11 @@ public class AuthService
         Token t = new Token()
         {
             TokenId = 0,
-            token = randomguid.ToString(),
+            TokenGuid = randomguid,
             expires_at = DateTime.Now.AddMinutes(5),
             UserId = user.UserId
         };
-        await _ctx.Token.AddAsync(t);
+        await _ctx.Tokens.AddAsync(t);
         return t;
     }
-
 }
