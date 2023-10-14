@@ -48,16 +48,39 @@ public class AuthController : ControllerBase
     {
         try
         {
-            bool isValid = await this._service.CheckToken(guid);
-            if (isValid)
+            if (Guid.TryParse(Request.Headers["A1tenticationToken"], out var t))
             {
-                return Ok(isValid);
+                var res = await this._service.Verify(t);
+                UserResponseDTO u = await this._service.CheckToken(guid);
+                bool isValid = u.UserToken.HasValue;
+                if (isValid)
+                {
+                    return Ok(u);
+                }
+                return Unauthorized();
             }
-            return Unauthorized();
+            else
+            {
+                return Ok(false);
+            }
         }
         catch (Exception e)
         {
             return BadRequest(e.Message);
+        }
+    }
+
+    [HttpPost, Route("Verify")]
+    public async Task<IActionResult> Verify()
+    {
+        if (Guid.TryParse(Request.Headers["A1tenticationToken"], out var t))
+        {
+            var res = await this._service.Verify(t);
+            return Ok(res);
+        }
+        else
+        {
+            return Ok(false);
         }
     }
 }

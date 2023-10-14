@@ -49,12 +49,30 @@ public class AuthService
         return res;
     }
 
-    public async Task<bool> CheckToken(Guid token) {
-        Token t = await _ctx.Tokens.FirstOrDefaultAsync(e => e.TokenGuid == token);
-        if(t is not null && t.expires_at > DateTime.Now) {
+    public async Task<UserResponseDTO> CheckToken(Guid token)
+    {
+        User u = await _ctx.Users.Include(e => e.UserToken).Where(e => e.UserToken.TokenGuid == token).FirstOrDefaultAsync();
+        if(u is not null && u.UserToken.expires_at > DateTime.Now) {
+            return new UserResponseDTO(u);
+        }
+        throw new Exception("User not found");
+    }
+    public async Task<bool> Verify(Guid token)
+    {
+        User u = await _ctx.Users.Include(e => e.UserToken).Where(e => e.UserToken.TokenGuid == token).FirstOrDefaultAsync();
+        return (u is not null && u.UserToken.expires_at > DateTime.Now);
+    }
+
+    public async Task<bool> VerifyToken(Guid token)
+    {
+        if (await this.Verify(token))
+        {
             return true;
         }
-        return false;
+        else
+        {
+            throw new Exception("Não autorizado");
+        }
     }
 
     public async Task<Token> SetToken(User user) {
